@@ -5,5 +5,5 @@ design application.
 A user interface element where units and simple arithmetic would be convenient
 when entering sizes or distances, rather than only accepting single values.
 
-A test application is provided in main.cpp.
+A test application is provided in main.cpp
 
