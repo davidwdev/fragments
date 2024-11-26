@@ -1,4 +1,6 @@
 
+**Numeric Expression Parser**
+
 This code fragment implements the backend of an edit field in some hypothetical
 design application.
 
