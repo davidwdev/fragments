@@ -5,7 +5,7 @@
 #include <string>
 #include <locale>
 
-#include "numeric.h"
+#include "numexpr.h"
 
 int main()
 {

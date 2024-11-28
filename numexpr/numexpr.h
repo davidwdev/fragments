@@ -58,9 +58,8 @@
 #pragma once
 
 #include <string>
-#include <string_view>
 #include <unordered_map>
-#include <deque>
+#include <string_view>
 #include <array>
 
 namespace Numeric

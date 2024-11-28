@@ -58,8 +58,9 @@
 #include <string>
 #include <iostream>
 #include <locale>
+#include <deque>
 
-#include "numeric.h"
+#include "numexpr.h"
 
 //==============================================================================
 
