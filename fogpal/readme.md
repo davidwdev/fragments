@@ -24,11 +24,12 @@ Example:
 
 > fogpal -col=808080 -steps=12 -final -i ega.hex ega_fog.hex
 
-Original:
+
+Palette:
 
 ![EGA colour palette](example/ega.png?raw=true "Palette")
 
-Palette with Fog Applied:
+Palette with Fog:
 
 ![EGA colour palette with fog](example/ega_fog.png?raw=true "Palette + Fog")
 
