@@ -166,6 +166,53 @@ static void print_help()
 }
 
 //
+// add_files_wildcard
+//
+// Add a file to an array. Supports wildcards like *.png, so multiple files may be added.
+//
+static void add_files_wildcard( const char* szWildCard, std::set< std::string >& aFiles )
+{
+	// printf( "scan input %s\n", szWildCard );
+
+	// split argument into path and file.
+	std::string path = szWildCard;
+	size_t slash_find = path.find_last_of( "/\\", path.npos ); // either kind of path separators
+	if ( slash_find == path.npos )
+	{
+		path.clear();
+	}
+	else
+	{
+		path = path.substr( 0, slash_find + 1 );
+		// printf( "from path %s\n", path.c_str() );
+	}
+
+	struct _finddata_t fileinfo;
+
+	// Start the search
+	intptr_t handle = _findfirst( szWildCard, &fileinfo );
+	if ( handle != -1L )
+	{
+		do
+		{
+			// A file, not a sub-directory?
+			if ( !( fileinfo.attrib & _A_SUBDIR ) )
+			{
+				std::string filepath;
+				filepath = path + fileinfo.name;
+
+				// printf( "found %s\n", filepath.c_str() );
+
+				aFiles.insert( filepath );
+			}
+		}
+		while ( _findnext( handle, &fileinfo ) == 0 ); // Get the next one
+
+		_findclose( handle );
+	}
+}
+
+//
 // process_args
 //
 // Process command line arguments
@@ -213,46 +260,7 @@ static bool process_args( int argc, char** argv, options_t& options )
 		}
 		else
 		{
-			// Must be an input file. It could be a wild-card, let's investigate.
-
-			// printf( "scan input %s\n", szArg );
-
-			// split argument into path and file.
-			std::string path = szArg;
-			size_t slash_find = path.find_last_of( "/\\", path.npos ); // either kind of path separators
-			if ( slash_find == path.npos )
-			{
-				path.clear();
-			}
-			else
-			{
-				path = path.substr( 0, slash_find + 1 );
-				// printf( "from path %s\n", path.c_str() );
-			}
-
-			struct _finddata_t fileinfo;
-
-			// Start the search
-			intptr_t handle = _findfirst( szArg, &fileinfo );
-			if ( handle != -1L )
-			{
-				do
-				{
-					// A file, not a sub-directory?
-					if ( !( fileinfo.attrib & _A_SUBDIR ) )
-					{
-						std::string filepath;
-						filepath = path + fileinfo.name;
-
-						// printf( "found %s\n", filepath.c_str() );
-
-						options.aInputFiles.insert( filepath );
-					}
-				}
-				while ( _findnext( handle, &fileinfo ) == 0 ); // Get the next one
-
-				_findclose( handle );
-			}
+			add_files_wildcard( szArg, options.aInputFiles );
 		}
 
 	}; // for each command line argument
