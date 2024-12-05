@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.34931.43
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "applypal", "applypal.vcxproj", "{20F78BA7-4A2C-42F5-97E9-532781D138E1}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libpng16", "..\libpng16\libpng16.vcxproj", "{B4E821A9-0FD7-4AD9-8C05-35E9B3882AAC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib", "..\zlib\zlib.vcxproj", "{A5322A1E-8A98-483B-8C85-4CDFFBDFCCEC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{20F78BA7-4A2C-42F5-97E9-532781D138E1}.Debug|x64.ActiveCfg = Debug|x64
+		{20F78BA7-4A2C-42F5-97E9-532781D138E1}.Debug|x64.Build.0 = Debug|x64
+		{20F78BA7-4A2C-42F5-97E9-532781D138E1}.Release|x64.ActiveCfg = Release|x64
+		{20F78BA7-4A2C-42F5-97E9-532781D138E1}.Release|x64.Build.0 = Release|x64
+		{B4E821A9-0FD7-4AD9-8C05-35E9B3882AAC}.Debug|x64.ActiveCfg = Debug|x64
+		{B4E821A9-0FD7-4AD9-8C05-35E9B3882AAC}.Debug|x64.Build.0 = Debug|x64
+		{B4E821A9-0FD7-4AD9-8C05-35E9B3882AAC}.Release|x64.ActiveCfg = Release|x64
+		{B4E821A9-0FD7-4AD9-8C05-35E9B3882AAC}.Release|x64.Build.0 = Release|x64
+		{A5322A1E-8A98-483B-8C85-4CDFFBDFCCEC}.Debug|x64.ActiveCfg = Debug|x64
+		{A5322A1E-8A98-483B-8C85-4CDFFBDFCCEC}.Debug|x64.Build.0 = Debug|x64
+		{A5322A1E-8A98-483B-8C85-4CDFFBDFCCEC}.Release|x64.ActiveCfg = Release|x64
+		{A5322A1E-8A98-483B-8C85-4CDFFBDFCCEC}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9E27530D-4CB7-46B4-B5B9-29878890E45E}
+	EndGlobalSection
+EndGlobal
