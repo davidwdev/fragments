@@ -102,7 +102,8 @@ struct options_t
 	
 	std::string strOutFile;
 
-	uint32_t uPaletteSize = 256;
+	uint32_t uPaletteSizeReal = 256;
+	uint32_t uPaletteSizePow2 = 256;
 
 	bool bForceTransp = false;
 };
@@ -112,6 +113,95 @@ typedef std::unordered_map< uint32_t, size_t > tUniqueColorMap;
 typedef std::vector< sColorTotal* > tColorBucket;
 
 //=============================================================================
+
+static uint32_t blend_rgb( color_t a, color_t b )
+{
+	color_t out;
+
+	int mix;
+
+	out.chan[ 3 ] = 0xFF;
+
+	for ( int i = 0; i < 3; ++i )
+	{
+		mix = ( ( (int)a.chan[ i ] ) + ( (int)b.chan[ i ] ) ) >> 1;
+		out.chan[ i ] = static_cast<uint8_t>( mix );
+	}
+
+	return out.value_abgr;
+}
+
+//
+// rgb_color_distance_squared
+//
+// Compute a 'distance' between too colors. Smaller values are closer.
+//
+static int rgb_color_distance_squared( color_t colour1, color_t colour2 )
+{
+	int x;
+	int delta;
+
+	x = static_cast<int>( colour1.chan[ 0 ] ) - static_cast<int>( colour2.chan[ 0 ] );
+	delta = x * x;
+
+	x = static_cast<int>( colour1.chan[ 1 ] ) - static_cast<int>( colour2.chan[ 1 ] );
+	delta += x * x;
+
+	x = static_cast<int>( colour1.chan[ 2 ] ) - static_cast<int>( colour2.chan[ 2 ] );
+	delta += x * x;
+
+	return delta;
+}
+
+static void crush_palette( std::vector< color_t >& aPalette, size_t targetSize )
+{
+	while ( aPalette.size() > targetSize )
+	{
+		struct measure_t
+		{
+			size_t index0;
+			size_t index1;
+			int best_dist;
+		};
+
+		measure_t m{ UINT32_MAX, UINT32_MAX, INT32_MAX };
+
+		for ( size_t i = 0; i < aPalette.size(); ++i )
+		{
+			const color_t& col_i = aPalette[ i ];
+
+			for ( size_t j = 0; j < aPalette.size(); ++j )
+			{
+				if ( i == j )
+					continue;
+
+				const color_t& col_j = aPalette[ j ];
+
+				int dist = rgb_color_distance_squared( col_i, col_j );
+				if ( dist <= m.best_dist )
+				{
+					m.index0 = i;
+					m.index1 = j;
+					m.best_dist = dist;
+				}
+			}
+		}
+
+		std::vector< color_t > aNewPal;
+		
+		for ( size_t i = 0; i < aPalette.size(); ++i )
+		{
+			if ( i == m.index0 || i == m.index1 )
+				continue;
+
+			aNewPal.push_back( aPalette[ i ] );
+		}
+
+		aNewPal.push_back( color_t( blend_rgb( aPalette[ m.index0 ], aPalette[ m.index1 ] ) ) );
+
+		std::swap( aPalette, aNewPal );
+	}
+}
 
 //
 // next_power_two
@@ -157,7 +247,7 @@ static void print_help()
 
 	// Options
 	printf( "  -?                This help.\n" );
-	printf( "  -count=#          Set the palette size (power of 2). [Default=256]\n" );
+	printf( "  -count=#          Set the palette size. [Default=256]\n" );
 	printf( "  -transp           Always make index 0 transparent.\n" );
 	putchar( '\n' );
 	printf( "  <image>           Source image(s), wildcards supported.\n" );
@@ -245,13 +335,8 @@ static bool process_args( int argc, char** argv, options_t& options )
 				return false;
 			}
 
-			uint32_t next = next_power_two( iSize );
-			if ( next > static_cast< uint32_t >( iSize ) )
-			{
-				printf( "Warning - requested palette size (%d) is not a power of 2, using %d.\n", iSize, next );
-			}
-
-			options.uPaletteSize = next;
+			options.uPaletteSizeReal = iSize;
+			options.uPaletteSizePow2 = next_power_two( iSize );
 		}
 		else if ( _stricmp( szArg, "-?" ) == 0 )
 		{
@@ -600,23 +685,6 @@ static void sort_palette_rgb( std::vector< color_t >& aPalette )
 			   } );
 }
 
-static uint32_t blend_rgb( color_t a, color_t b )
-{
-	color_t out;
-
-	int mix;
-
-	out.chan[ 3 ] = 0xFF;
-
-	for ( int i = 0; i < 3; ++i )
-	{
-		mix = ( ( (int)a.chan[ i ] ) + ( (int)b.chan[ i ] ) ) >> 1;
-		out.chan[ i ] = static_cast<uint8_t>( mix );
-	}
-
-	return out.value_abgr;
-}
-
 //==============================================================================
 
 //
@@ -645,7 +713,13 @@ static void do_work( const options_t& options )
 	{
 		std::cout << "Applying 'median cut' reduction... ";
 
-		median_cut( unique_colors, options.uPaletteSize, aPalette );
+		median_cut( unique_colors, options.uPaletteSizePow2, aPalette );
+
+		uint32_t targetSize = options.uPaletteSizeReal;
+		if ( bMaskDetected || options.bForceTransp )
+			--targetSize;
+
+		crush_palette( aPalette, targetSize );
 
 		sort_palette_rgb( aPalette ); // move black to index 0
 	}
@@ -660,11 +734,9 @@ static void do_work( const options_t& options )
 
 	if ( bMaskDetected || options.bForceTransp )
 	{
-		// steal index 0 (closest to black) for transparency
-		aPalette[ 1 ].value_abgr = blend_rgb( aPalette[ 0 ], aPalette[ 1 ] );
-		aPalette[ 0 ].value_abgr = KEY_TRANSPARENT;
+		std::cout << "Reduced palette to " << aPalette.size() << ". Plus transparent index 0.\n\n";
 
-		std::cout << "Reduced palette to " << ( aPalette.size() - 1 ) << ". Plus transparent key.\n\n";
+		aPalette.insert( aPalette.begin(), color_t( KEY_TRANSPARENT ) );
 	}
 	else
 	{

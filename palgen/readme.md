@@ -1,7 +1,7 @@
 
 **Palette Generator**
 
-A command line tool that takes one or more input image(s) and generates a unified palette of a requested size (must be a power of 2) using the 'median cut' algorithm. If any transparent pixels are detected, these are mapped to a special (magenta) index 0 value.
+A command line tool that takes one or more input image(s) and generates a unified palette of a requested size using the 'median cut' algorithm. If any transparent pixels are detected, these are mapped to a special (magenta) index 0 value.
 
 The stb_image library is used to load images.
 
@@ -13,7 +13,7 @@ Usage:
  palgen.exe [-?] [-count=#] [-transp] <image>[...] -o <palette>
 
   -?                This help.
-  -count=#          Set the palette size (power of 2). [Default=256]
+  -count=#          Set the palette size. [Default=256]
   -transp           Always make index 0 transparent.
 
   <image>           Source image(s), wildcards supported.
