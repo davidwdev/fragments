@@ -10,10 +10,11 @@ The palette is written to disk in the .hex format. A simple format - newline sep
 Usage:
 
 ```
- palgen.exe [-?] [-count=#] <image>[...] -o <palette>
+ palgen.exe [-?] [-count=#] [-transp] <image>[...] -o <palette>
 
   -?                This help.
   -count=#          Set the palette size (power of 2). [Default=256]
+  -transp           Always make index 0 transparent.
 
   <image>           Source image(s), wildcards supported.
 
@@ -25,7 +26,7 @@ Usage:
 
 Example 1:
 
-> palgen -o leaf.hex -count=4 leaf.png
+> palgen -o leaf.hex -count=4 -transp leaf.png
 
 Source Image:
 

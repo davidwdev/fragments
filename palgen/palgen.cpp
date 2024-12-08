@@ -103,6 +103,8 @@ struct options_t
 	std::string strOutFile;
 
 	uint32_t uPaletteSize = 256;
+
+	bool bForceTransp = false;
 };
 
 typedef std::unordered_map< uint32_t, size_t > tUniqueColorMap;
@@ -150,12 +152,13 @@ static void print_hello()
 static void print_help()
 {
 	// Usage
-	printf( " USAGE: palgen.exe [-?] [-count=#] <image>[...] -o <palette>\n" );
+	printf( " USAGE: palgen.exe [-?] [-count=#] [-transp] <image>[...] -o <palette>\n" );
 	putchar( '\n' );
 
 	// Options
 	printf( "  -?                This help.\n" );
 	printf( "  -count=#          Set the palette size (power of 2). [Default=256]\n" );
+	printf( "  -transp           Always make index 0 transparent.\n" );
 	putchar( '\n' );
 	printf( "  <image>           Source image(s), wildcards supported.\n" );
 	putchar( '\n' );
@@ -257,6 +260,10 @@ static bool process_args( int argc, char** argv, options_t& options )
 		else if ( _stricmp( szArg, "-o" ) == 0 )
 		{
 			bNextArgIsOutput = true;
+		}
+		else if ( _stricmp( szArg, "-transp" ) == 0 )
+		{
+			options.bForceTransp = true;
 		}
 		else
 		{
@@ -651,7 +658,7 @@ static void do_work( const options_t& options )
 
 	std::cout << "DONE.\n";
 
-	if ( bMaskDetected )
+	if ( bMaskDetected || options.bForceTransp )
 	{
 		// steal index 0 (closest to black) for transparency
 		aPalette[ 1 ].value_abgr = blend_rgb( aPalette[ 0 ], aPalette[ 1 ] );
