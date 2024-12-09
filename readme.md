@@ -19,4 +19,4 @@ All support is greatly appreciated and encourages me to develop more open source
 
 ➤ |<sup>●</sup> Back me on︎ Patreon: https://www.patreon.com/davidwdev
 
-[![Patreon](https://github.com/davidwdev/fragments/patreon.svg?raw=true)](https://www.patreon.com/davidwdev)
+[![Patreon](patreon.svg?raw=true)](https://www.patreon.com/davidwdev)
