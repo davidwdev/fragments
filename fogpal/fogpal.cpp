@@ -45,6 +45,7 @@ struct options_t
 	uint32_t fogColour = 0;
 	
 	bool bLastStepEqualsFog = false;
+	bool bSplitMode = false;
 };
 
 //=============================================================================
@@ -69,13 +70,14 @@ static void print_hello()
 static void print_help()
 {
 	// Usage
-	printf( " USAGE: fogpal.exe [-?] -col=RRGGBB [-final] -steps=# -i <palette> <output>\n\n" );
+	printf( " USAGE: fogpal.exe [-?] -col=RRGGBB [-final] -steps=# [-split] -i <palette> <output>\n\n" );
 
 	// Options
 	printf( "  -?                This help.\n" );
 	printf( "  -col=RRGGBB       The fog colour.\n" );
 	printf( "  -final            Make the last line equal to the fog colour.\n" );
 	printf( "  -steps=#          Set the number of fog levels to generate.\n" );
+	printf( "  -split            Write each fog level to a separate file.\n" );
 	putchar( '\n' );
 	printf( "  -i <file>         Filename of input palette.\n" );
 	putchar( '\n' );
@@ -143,6 +145,10 @@ static bool process_args( int argc, char** argv, options_t& options )
 		{
 			options.bLastStepEqualsFog = true;
 		}
+		else if ( _stricmp( szArg, "-split" ) == 0 )
+		{
+			options.bSplitMode = true;
+		}
 		else if ( options.strOutPaletteFile.empty() && ( szArg[ 0 ] != '-' ) )
 		{
 			options.strOutPaletteFile = szArg;
@@ -165,6 +171,20 @@ static bool process_args( int argc, char** argv, options_t& options )
 	{
 		printf( "Error - no output file specified.\n" );
 		return false;
+	}
+
+	if ( options.bSplitMode )
+	{
+		// Strip file extension
+
+		size_t f, s;
+		f = options.strOutPaletteFile.find_last_of( '.', std::string::npos );
+		s = options.strOutPaletteFile.find_last_of( "/\\", std::string::npos );
+
+		if ( f != std::string::npos && ( ( f > s ) || ( s == std::string::npos ) ) )
+		{
+			options.strOutPaletteFile = options.strOutPaletteFile.substr( 0, f );
+		}
 	}
 
 	return true;
@@ -263,7 +283,7 @@ static void parse_hexfile( std::ifstream& fileInput, std::vector<uint32_t>& aPal
 //
 // Dump the whole palette to disk in .hex format.
 //
-static void write_hexfile( std::vector< uint32_t >& aPalette, const std::string& strFileName )
+static bool write_hexfile( std::vector< uint32_t >& aPalette, size_t iBase, size_t iCount, const std::string& strFileName )
 {
 	char buf[ 64 ];
 
@@ -272,9 +292,9 @@ static void write_hexfile( std::vector< uint32_t >& aPalette, const std::string&
 	std::ofstream file( strFileName );
 	if ( file.is_open() )
 	{
-		for ( uint32_t i = 0; i < aPalette.size(); ++i )
+		for ( size_t i = 0; i < iCount; ++i )
 		{
-			const uint32_t c = aPalette[ i ];
+			const uint32_t c = aPalette[ i + iBase ];
 
 			// .hex palette file format
 			sprintf_s( buf, sizeof( buf ), "%06x\n", c );
@@ -283,11 +303,13 @@ static void write_hexfile( std::vector< uint32_t >& aPalette, const std::string&
 		}
 
 		file.close();
-		printf( "OK\n\n" );
+		printf( "OK\n" );
+		return true;
 	}
 	else
 	{
-		printf( "FAILED\n\n" );
+		printf( "FAILED\n" );
+		return false;
 	}
 }
 
@@ -328,20 +350,44 @@ static void do_work( const options_t& options )
 		printf( "OK\n\n" );
 	}
 
+	const size_t initialSize = aPalette.size();
+
 	// Explain what we're doing.
 	printf( "Generating %d steps of fog (#%06x) for this palette.\n", options.iSteps, options.fogColour );
 
 	if ( options.bLastStepEqualsFog )
 	{
-		printf( "The last %llu entries will equal the fog colour (#%06x).\n", aPalette.size(), options.fogColour );
+		printf( "The last %llu entries will equal the fog colour (#%06x).\n", initialSize, options.fogColour );
 	}
 
-	printf( "\nThe palette is now %llu x %u = %llu entries.\n\n", aPalette.size(), options.iSteps, aPalette.size() * options.iSteps );
+	printf( "\nThe palette is now %llu x %u = %llu entries.\n\n", initialSize, options.iSteps, initialSize * options.iSteps );
 
 	generate_fog( aPalette, options );
 
 	// Try and write the output.
-	write_hexfile( aPalette, options.strOutPaletteFile );
+
+	if ( options.bSplitMode )
+	{
+		printf( "Writing split palette files ...\n\n" );
+
+		for ( int step = 1; step < options.iSteps; ++step )
+		{
+			std::string file;
+			file = options.strOutPaletteFile;
+			file += "_";
+			file += std::to_string( step );
+			file += ".hex";
+
+			if ( write_hexfile( aPalette, step * initialSize, initialSize, file ) == false )
+			{
+				break;
+			}
+		}
+	}
+	else
+	{
+		write_hexfile( aPalette, 0, aPalette.size(), options.strOutPaletteFile );
+	}
 
 	// Done. We can close the input now.
 	fileInput.close();

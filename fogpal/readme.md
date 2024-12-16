@@ -8,12 +8,13 @@ A command line tool that takes an input palette in .hex format, generates multip
 Usage:
 
 ```
- fogpal.exe [-?] -col=RRGGBB [-final] -steps=# -i <palette> <output>
+ fogpal.exe [-?] -col=RRGGBB [-final] -steps=# [-split] -i <palette> <output>
 
   -?                This help.
   -col=RRGGBB       The fog colour.
   -final            Make the last line equal to the fog colour.
   -steps=#          Set the number of fog levels to generate.
+  -split            Write each fog level to a separate file.
 
   -i <file>         Filename of input palette.
 
