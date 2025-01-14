@@ -312,7 +312,7 @@ struct options_t
 	std::vector< color_t > aPalette;
 
 	std::set< std::string > aInputFiles;
-	
+
 	bool bDither = false;
 	bool bOpaque = true;
 
@@ -840,7 +840,7 @@ static void remap_image_nearest( const colormap_t& image, indexmap_t& output, op
 			const color_t colour = image.Peek( x, y );
 
 			uint8_t remapped_idx;
-			
+
 			if ( bCheckTransp && colour.chan[ 3 ] != 0xFF )
 			{
 				remapped_idx = 0; // TRANSPARENT!
@@ -984,6 +984,7 @@ static void do_work( options_t& options )
 		else if ( chan_count != 3 && chan_count != 4 )
 		{
 			std::cout << "INVALID-CHANNELS (" << chan_count << ")\n";
+			stbi_image_free( img_data );
 			continue;
 		}
 
@@ -992,9 +993,10 @@ static void do_work( options_t& options )
 		if ( fileInput.is_open() == false )
 		{
 			std::cout << "FAILED\n";
+			stbi_image_free( img_data );
 			continue;
 		}
-		
+
 		std::cout << "OK (" << w << " x " << h << ")\n";
 
 		// where do we write the output?
@@ -1023,10 +1025,10 @@ static void do_work( options_t& options )
 		{
 			remap_image_nearest( image, output, options );
 		}
-	
+
 		// write image!
 		write_png( output, options.aPalette, options.bOpaque, outFile );
-		
+
 		// tidy up
 		delete[] image._data_ptr;
 		delete[] output._data_ptr;
