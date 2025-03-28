@@ -880,8 +880,8 @@ static void determine_output_filename( const std::string& inputFile, options_t& 
 	}
 	else
 	{
-		outFolder = outFolder.substr( 0, slash_find + 1 );
-		outFile = outFolder.substr( slash_find );
+		outFolder = inputFile.substr( 0, slash_find + 1 );
+		outFile = inputFile.substr( slash_find + 1 );
 	}
 
 	if ( options.strOutFolder.empty() == false )
