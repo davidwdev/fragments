@@ -106,6 +106,7 @@ struct options_t
 	uint32_t uPaletteSizePow2 = 256;
 
 	bool bForceTransp = false;
+	bool bForceOpaque = false;
 };
 
 typedef std::unordered_map< uint32_t, size_t > tUniqueColorMap;
@@ -242,13 +243,14 @@ static void print_hello()
 static void print_help()
 {
 	// Usage
-	printf( " USAGE: palgen.exe [-?] [-count=#] [-transp] <image>[...] -o <palette>\n" );
+	printf( " USAGE: palgen.exe [-?] [-count=#] [-transp] [-opaque] <image>[...] -o <palette>\n" );
 	putchar( '\n' );
 
 	// Options
 	printf( "  -?                This help.\n" );
 	printf( "  -count=#          Set the palette size. [Default=256]\n" );
 	printf( "  -transp           Always make index 0 transparent.\n" );
+	printf( "  -opaque           Ignore transparent pixels.\n" );
 	putchar( '\n' );
 	printf( "  <image>           Source image(s), wildcards supported.\n" );
 	putchar( '\n' );
@@ -349,6 +351,10 @@ static bool process_args( int argc, char** argv, options_t& options )
 		else if ( _stricmp( szArg, "-transp" ) == 0 )
 		{
 			options.bForceTransp = true;
+		}
+		else if ( _stricmp( szArg, "-opaque" ) == 0 )
+		{
+			options.bForceOpaque = true;
 		}
 		else
 		{
@@ -716,8 +722,10 @@ static void do_work( const options_t& options )
 		median_cut( unique_colors, options.uPaletteSizePow2, aPalette );
 
 		uint32_t targetSize = options.uPaletteSizeReal;
-		if ( bMaskDetected || options.bForceTransp )
+		if ( ( bMaskDetected && !options.bForceOpaque ) || options.bForceTransp )
+		{
 			--targetSize;
+		}
 
 		crush_palette( aPalette, targetSize );
 
@@ -732,7 +740,7 @@ static void do_work( const options_t& options )
 
 	std::cout << "DONE.\n";
 
-	if ( bMaskDetected || options.bForceTransp )
+	if ( ( bMaskDetected && !options.bForceOpaque ) || options.bForceTransp )
 	{
 		std::cout << "Reduced palette to " << aPalette.size() << ". Plus transparent index 0.\n\n";
 
