@@ -753,7 +753,7 @@ static void accumulate_error( int x, int y, dithermap_t& workspace, const dither
 	p.err_b += error.err_b * fScale;
 }
 
-static void remap_image_dither( const colormap_t& image, indexmap_t& output, options_t& options )
+static void remap_image_dither( const colormap_t& image, indexmap_t& output, options_t& options, const color_t pal_idx0 )
 {
 	const bool bCheckTransp = ( options.bOpaque == false ) && image.bHasAlpha;
 	const size_t palStart = ( options.bOpaque == false ) ? 1 : 0;
@@ -768,12 +768,24 @@ static void remap_image_dither( const colormap_t& image, indexmap_t& output, opt
 		{
 			color_t colour = image.Peek( x, y );
 
-			dither_t& target = workspace.Element( x, y );
-			target.err_r = static_cast<float>( colour.chan[ 0 ] ) / 255.0f;
-			target.err_g = static_cast<float>( colour.chan[ 1 ] ) / 255.0f;
-			target.err_b = static_cast<float>( colour.chan[ 2 ] ) / 255.0f;
-			target.is_opaque = !( bCheckTransp && colour.chan[ 3 ] != 0xFF );
-			target.index = 0;
+			if ( image.bHasAlpha == false && options.bOpaque == false && colour.BGR() == pal_idx0.BGR() )
+			{
+				dither_t& target = workspace.Element( x, y );
+				target.err_r = static_cast<float>( colour.chan[ 0 ] ) / 255.0f;
+				target.err_g = static_cast<float>( colour.chan[ 1 ] ) / 255.0f;
+				target.err_b = static_cast<float>( colour.chan[ 2 ] ) / 255.0f;
+				target.is_opaque = false;
+				target.index = 0;
+			}
+			else
+			{
+				dither_t& target = workspace.Element( x, y );
+				target.err_r = static_cast<float>( colour.chan[ 0 ] ) / 255.0f;
+				target.err_g = static_cast<float>( colour.chan[ 1 ] ) / 255.0f;
+				target.err_b = static_cast<float>( colour.chan[ 2 ] ) / 255.0f;
+				target.is_opaque = !( bCheckTransp && colour.chan[ 3 ] != 0xFF );
+				target.index = 0;
+			}
 		}
 	}
 
@@ -827,7 +839,7 @@ static void remap_image_dither( const colormap_t& image, indexmap_t& output, opt
 
 //==============================================================================
 
-static void remap_image_nearest( const colormap_t& image, indexmap_t& output, options_t& options )
+static void remap_image_nearest( const colormap_t& image, indexmap_t& output, options_t& options, const color_t pal_idx0 )
 {
 	std::vector< color_t >& aPalette = options.aPalette;
 
@@ -1017,13 +1029,15 @@ static void do_work( options_t& options )
 		indexmap_t output;
 		output.Create( w, h, uBPP );
 
+		const color_t pal_idx0 = options.aPalette[ 0 ];
+
 		if ( options.bDither )
 		{
-			remap_image_dither( image, output, options );
+			remap_image_dither( image, output, options, pal_idx0 );
 		}
 		else
 		{
-			remap_image_nearest( image, output, options );
+			remap_image_nearest( image, output, options, pal_idx0 );
 		}
 
 		// write image!
