@@ -3,7 +3,7 @@
 
 MIT License
 
-Copyright (c) 2024 David Walters
+Copyright (c) 2024-2025 David Walters
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -48,7 +48,7 @@ SOFTWARE.
 
 struct color_t
 {
-	union 
+	union
 	{
 		uint32_t value_abgr;
 		uint8_t chan[ 4 ]; // R, G, B, A
@@ -58,6 +58,14 @@ public:
 	inline uint32_t sum_rgb()
 	{
 		return (int)chan[ 0 ] + (int)chan[ 1 ] + (int)chan[ 2 ];
+	}
+
+	inline void make_lum()
+	{
+		// https://en.wikipedia.org/wiki/Relative_luminance
+		const float lum = ( chan[ 0 ] * 0.299f ) + ( chan[ 1 ] * 0.587f ) + ( chan[ 2 ] * 0.114f );
+		const uint8_t g = uint8_t( std::clamp( int( round( lum ) ), 0, 255 ) );
+		chan[ 0 ] = chan[ 1 ] = chan[ 2 ] = g;
 	}
 };
 
@@ -99,12 +107,13 @@ public:
 struct options_t
 {
 	std::set< std::string > aInputFiles;
-	
+
 	std::string strOutFile;
 
 	uint32_t uPaletteSizeReal = 256;
 	uint32_t uPaletteSizePow2 = 256;
 
+	bool bLuminance = false;
 	bool bForceTransp = false;
 	bool bForceOpaque = false;
 };
@@ -189,7 +198,7 @@ static void crush_palette( std::vector< color_t >& aPalette, size_t targetSize )
 		}
 
 		std::vector< color_t > aNewPal;
-		
+
 		for ( size_t i = 0; i < aPalette.size(); ++i )
 		{
 			if ( i == m.index0 || i == m.index1 )
@@ -243,12 +252,13 @@ static void print_hello()
 static void print_help()
 {
 	// Usage
-	printf( " USAGE: palgen.exe [-?] [-count=#] [-transp] [-opaque] <image>[...] -o <palette>\n" );
+	printf( " USAGE: palgen.exe [-?] [-count=#] [-lum] [-transp] [-opaque] <image>[...] -o <palette>\n" );
 	putchar( '\n' );
 
 	// Options
 	printf( "  -?                This help.\n" );
 	printf( "  -count=#          Set the palette size. [Default=256]\n" );
+	printf( "  -lum              Apply rgb-to-luminance pre-filter to all inputs.\n" );
 	printf( "  -transp           Always make index 0 transparent.\n" );
 	printf( "  -opaque           Ignore transparent pixels.\n" );
 	putchar( '\n' );
@@ -348,6 +358,10 @@ static bool process_args( int argc, char** argv, options_t& options )
 		{
 			bNextArgIsOutput = true;
 		}
+		else if ( _stricmp( szArg, "-lum" ) == 0 )
+		{
+			options.bLuminance = true;
+		}
 		else if ( _stricmp( szArg, "-transp" ) == 0 )
 		{
 			options.bForceTransp = true;
@@ -418,6 +432,57 @@ static void write_hexfile( std::vector< color_t >& aPalette, const std::string& 
 }
 
 
+static void count_unique_image_lum_3ch( uint8_t* data, int width, int height, tUniqueColorMap& col_counts )
+{
+	for ( int y = 0; y < height; ++y )
+	{
+		for ( int x = 0; x < width; ++x )
+		{
+			color_t col;
+			col.chan[ 0 ] = data[ 0 ];
+			col.chan[ 1 ] = data[ 1 ];
+			col.chan[ 2 ] = data[ 2 ];
+			col.chan[ 3 ] = 0xFF;
+
+			col.make_lum();
+
+			data += 3;
+
+			// Add to the map
+			col_counts[ col.value_abgr ]++;
+		}
+	}
+}
+
+static void count_unique_image_lum_4ch( uint8_t* data, int width, int height, tUniqueColorMap& col_counts, bool& bMaskDetected )
+{
+	for ( int y = 0; y < height; ++y )
+	{
+		for ( int x = 0; x < width; ++x )
+		{
+			color_t col;
+			col.chan[ 0 ] = data[ 0 ];
+			col.chan[ 1 ] = data[ 1 ];
+			col.chan[ 2 ] = data[ 2 ];
+			col.chan[ 3 ] = data[ 3 ];
+
+			col.make_lum();
+
+			data += 4;
+
+			// not-opaque pixel?
+			if ( ( col.chan[ 3 ] ) != 0xFF )
+			{
+				bMaskDetected = true;
+				continue;
+			}
+
+			// Add to the map
+			col_counts[ col.value_abgr ]++;
+		}
+	}
+}
+
 static void count_unique_image_cols_3ch( uint8_t* data, int width, int height, tUniqueColorMap& col_counts )
 {
 	for ( int y = 0; y < height; ++y )
@@ -470,15 +535,17 @@ static void count_unique_image_cols_4ch( uint8_t* data, int width, int height, t
 //
 // Load and run count_unique_image_cols on all image files to build a unique color map.
 //
-static void analyse_images( const std::set< std::string >& file_names,
-							tUniqueColorMap& unique_colors, 
+static void analyse_images( const options_t& options,
+							tUniqueColorMap& unique_colors,
 							bool& bMaskDetected )
 {
+	const std::set< std::string >& file_names = options.aInputFiles;
+
 	for ( const auto& file_name : file_names )
 	{
 		int w, h, chan_count;
 		unsigned char* data;
-		
+
 		std::cout << "Analyze: \"" << file_name << "\" ... ";
 
 		data = stbi_load( file_name.c_str(), &w, &h, &chan_count, 0 );
@@ -497,17 +564,35 @@ static void analyse_images( const std::set< std::string >& file_names,
 		{
 			std::cout << "LOADED (" << w << " x " << h << ") ... ";
 
-			switch ( chan_count )
+			if ( options.bLuminance )
 			{
+				switch ( chan_count )
+				{
 
-			case 3:
-				count_unique_image_cols_3ch( data, w, h, unique_colors );
-				break;
+				case 3:
+					count_unique_image_lum_3ch( data, w, h, unique_colors );
+					break;
 
-			case 4:
-				count_unique_image_cols_4ch( data, w, h, unique_colors, bMaskDetected );
-				break;
+				case 4:
+					count_unique_image_lum_4ch( data, w, h, unique_colors, bMaskDetected );
+					break;
 
+				}
+			}
+			else
+			{
+				switch ( chan_count )
+				{
+
+				case 3:
+					count_unique_image_cols_3ch( data, w, h, unique_colors );
+					break;
+
+				case 4:
+					count_unique_image_cols_4ch( data, w, h, unique_colors, bMaskDetected );
+					break;
+
+				}
 			}
 
 			stbi_image_free( data );
@@ -712,7 +797,7 @@ static void do_work( const options_t& options )
 
 	tUniqueColorMap unique_colors;
 
-	analyse_images( options.aInputFiles, unique_colors, bMaskDetected );
+	analyse_images( options, unique_colors, bMaskDetected );
 
 	std::cout << "\nDetected " << unique_colors.size() << " unique colors.\n";
 

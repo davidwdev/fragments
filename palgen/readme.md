@@ -10,10 +10,11 @@ The palette is written to disk in the .hex format. A simple format - newline sep
 Usage:
 
 ```
- palgen.exe [-?] [-count=#] [-transp] [-opaque] <image>[...] -o <palette>
+ palgen.exe [-?] [-count=#] [-lum] [-transp] [-opaque] <image>[...] -o <palette>
 
   -?                This help.
   -count=#          Set the palette size. [Default=256]
+  -lum              Apply rgb-to-luminance pre-filter to all inputs.
   -transp           Always make index 0 transparent.
   -opaque           Ignore transparent pixels.
 
