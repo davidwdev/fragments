@@ -10,12 +10,13 @@ The palette should use .hex format. A simple format - newline separated 6 digit 
 Usage:
 
 ```
- applypal.exe [-?]  [-dither] [-opaque|-transp] -pal <palette> <image>[...] [-o <file>]|[-outdir <folder>]
+ applypal.exe [-?]  [-dither] [-opaque|-transp] [-lum] -pal <palette> <image>[...] [-o <file>]|[-outdir <folder>]
 
   -?                 This help.
   -dither            Apply error-diffusion dithering to output.
   -opaque            All palette indices are opaque [default]
   -transp            Make palette index 0 transparent.
+  -lum               Apply rgb-to-luminance pre-filter to all inputs.
 
   -pal <palette>     Palette file to use (in .HEX format)
 

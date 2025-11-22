@@ -3,7 +3,7 @@
 
 MIT License
 
-Copyright (c) 2024 David Walters
+Copyright (c) 2024-2025 David Walters
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -96,6 +96,14 @@ struct color_t
 
 public:
 
+	inline void make_lum()
+	{
+		// https://en.wikipedia.org/wiki/Relative_luminance
+		const float lum = ( chan[ 0 ] * 0.299f ) + ( chan[ 1 ] * 0.587f ) + ( chan[ 2 ] * 0.114f );
+		const uint8_t g = uint8_t( std::clamp( int( round( lum ) ), 0, 255 ) );
+		chan[ 0 ] = chan[ 1 ] = chan[ 2 ] = g;
+	}
+
 	uint32_t BGR() const { return value_abgr & 0xFFFFFF; }
 
 	void FromDither( dither_t& dither )
@@ -126,6 +134,46 @@ public:
 		_width = w;
 		_height = h;
 		_data_ptr = new color_t[ w * h ];
+	}
+
+	void CopyFromLUM( uint8_t* src )
+	{
+		bHasAlpha = false;
+		color_t* pout = _data_ptr;
+		color_t* pend = _data_ptr + _width * _height;
+		while ( pout < pend )
+		{
+			pout->chan[ 0 ] = *src++;
+			pout->chan[ 1 ] = *src++;
+			pout->chan[ 2 ] = *src++;
+
+			pout->make_lum();
+
+			pout->chan[ 3 ] = 0xFF;
+			++pout;
+		}
+	}
+
+	void CopyFromLUMalpha( uint8_t* src )
+	{
+		bHasAlpha = false;
+		color_t* pout = _data_ptr;
+		color_t* pend = _data_ptr + _width * _height;
+		while ( pout < pend )
+		{
+			pout->chan[ 0 ] = *src++;
+			pout->chan[ 1 ] = *src++;
+			pout->chan[ 2 ] = *src++;
+
+			pout->make_lum();
+
+			uint8_t alpha = *src++;
+
+			if ( alpha < 255 ) bHasAlpha = true;
+
+			pout->chan[ 3 ] = alpha;
+			++pout;
+		}
 	}
 
 	void CopyFromRGB( uint8_t* src )
@@ -313,6 +361,7 @@ struct options_t
 
 	std::set< std::string > aInputFiles;
 
+	bool bLuminance = false;
 	bool bDither = false;
 	bool bOpaque = true;
 
@@ -342,8 +391,8 @@ static void print_hello()
 static void print_help()
 {
 	// Usage
-	printf( " USAGE: applypal.exe [-?] [-dither] [-opaque|-transp] -pal <palette> <image>[...]\n" );
-	printf( "                [-o <image>]|[-outdir <folder>]\n\n" );
+	printf( " USAGE: applypal.exe [-?] [-dither] [-opaque|-transp] [-lum] -pal <palette>\n" );
+	printf( "                <image>[...] [-o <image>]|[-outdir <folder>]\n\n" );
 	putchar( '\n' );
 
 	// Options
@@ -351,6 +400,7 @@ static void print_help()
 	printf( "  -dither            Apply error-diffusion dithering to output.\n" );
 	printf( "  -opaque            All palette indices are opaque [default]\n" );
 	printf( "  -transp            Make palette index 0 transparent.\n" );
+	printf( "  -lum               Apply rgb-to-luminance pre-filter to all inputs.\n" );
 
 	putchar( '\n' );
 	printf( "  -pal <palette>     Palette file to use (in .HEX format)\n" );
@@ -533,6 +583,10 @@ static bool process_args( int argc, char** argv, options_t& options )
 		else if ( _stricmp( szArg, "-outdir" ) == 0 )
 		{
 			bNextArgIsOutFolder = true;
+		}
+		else if ( _stricmp( szArg, "-lum" ) == 0 )
+		{
+			options.bLuminance = true;
 		}
 		else if ( _stricmp( szArg, "-dither" ) == 0 )
 		{
@@ -1017,13 +1071,28 @@ static void do_work( options_t& options )
 
 		colormap_t image;
 		image.Create( w, h );
-		if ( chan_count == 3 )
+
+		if ( options.bLuminance )
 		{
-			image.CopyFromRGB( img_data );
+			if ( chan_count == 3 )
+			{
+				image.CopyFromLUM( img_data );
+			}
+			else if ( chan_count == 4 )
+			{
+				image.CopyFromLUMalpha( img_data );
+			}
 		}
-		else if ( chan_count == 4 )
+		else
 		{
-			image.CopyFromRGBA( img_data );
+			if ( chan_count == 3 )
+			{
+				image.CopyFromRGB( img_data );
+			}
+			else if ( chan_count == 4 )
+			{
+				image.CopyFromRGBA( img_data );
+			}
 		}
 
 		indexmap_t output;
