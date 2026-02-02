@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="lpng1644\png.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngerror.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngget.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngmem.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngpread.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngread.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngrio.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngrtran.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngrutil.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngset.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngtrans.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngwio.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngwrite.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngwtran.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+    <ClCompile Include="lpng1644\pngwutil.c">
+      <Filter>lpng1644</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="lpng1644\png.h">
+      <Filter>lpng1644</Filter>
+    </ClInclude>
+    <ClInclude Include="lpng1644\pngconf.h">
+      <Filter>lpng1644</Filter>
+    </ClInclude>
+    <ClInclude Include="lpng1644\pngdebug.h">
+      <Filter>lpng1644</Filter>
+    </ClInclude>
+    <ClInclude Include="lpng1644\pnginfo.h">
+      <Filter>lpng1644</Filter>
+    </ClInclude>
+    <ClInclude Include="lpng1644\pnglibconf.h">
+      <Filter>lpng1644</Filter>
+    </ClInclude>
+    <ClInclude Include="lpng1644\pngpriv.h">
+      <Filter>lpng1644</Filter>
+    </ClInclude>
+    <ClInclude Include="lpng1644\pngstruct.h">
+      <Filter>lpng1644</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="lpng1644">
+      <UniqueIdentifier>{cb86d386-39f7-4e60-a95f-89edf13e3b6d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
