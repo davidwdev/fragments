@@ -3,7 +3,7 @@
 
 MIT License
 
-Copyright (c) 2024 David Walters
+Copyright (c) 2024-2026 David Walters
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -46,6 +46,17 @@ struct options_t
 	
 	bool bLastStepEqualsFog = false;
 	bool bSplitMode = false;
+	bool bRemap = false;
+	bool bRemapLab = false;
+};
+
+struct color_t
+{
+	union
+	{
+		uint32_t value_abgr;
+		uint8_t chan[ 4 ]; // R, G, B, A
+	};
 };
 
 //=============================================================================
@@ -70,7 +81,8 @@ static void print_hello()
 static void print_help()
 {
 	// Usage
-	printf( " USAGE: fogpal.exe [-?] -col=RRGGBB [-final] -steps=# [-split] -i <palette> <output>\n\n" );
+	printf( " USAGE: fogpal.exe [-?] -col=RRGGBB [-final] -steps=# [-split]\n" );
+	printf( "                 [-remap|-remap-lab] -i <palette> <output>\n\n" );
 
 	// Options
 	printf( "  -?                This help.\n" );
@@ -78,6 +90,8 @@ static void print_help()
 	printf( "  -final            Make the last line equal to the fog colour.\n" );
 	printf( "  -steps=#          Set the number of fog levels to generate.\n" );
 	printf( "  -split            Write each fog level to a separate file.\n" );
+	printf( "  -remap            Map fog outputs back to original palette.\n" );
+	printf( "  -remap-lab        Use Lab color space for remapping.\n" );
 	putchar( '\n' );
 	printf( "  -i <file>         Filename of input palette.\n" );
 	putchar( '\n' );
@@ -111,7 +125,7 @@ static bool process_args( int argc, char** argv, options_t& options )
 		{
 			options.iSteps = atoi( szArg + 7 );
 
-			if ( options.iSteps <= 2 )
+			if ( options.iSteps <= 1 )
 			{
 				printf( "Error - invalid number of steps (%d).\n", options.iSteps );
 				return false;
@@ -140,6 +154,15 @@ static bool process_args( int argc, char** argv, options_t& options )
 		else if ( _stricmp( szArg, "-i" ) == 0 )
 		{
 			bNextArgIsPalette = true;
+		}
+		else if ( _stricmp( szArg, "-remap" ) == 0 )
+		{
+			options.bRemap = true;
+		}
+		else if ( _stricmp( szArg, "-remap-lab" ) == 0 )
+		{
+			options.bRemap = true;
+			options.bRemapLab = true;
 		}
 		else if ( _stricmp( szArg, "-final" ) == 0 )
 		{
@@ -188,6 +211,149 @@ static bool process_args( int argc, char** argv, options_t& options )
 	}
 
 	return true;
+}
+
+double F( double input ) // function f(...), which is used for defining L, a and b changes within [4/29,1]
+{
+	if ( input > 0.008856 )
+	{
+		return ( pow( input, 0.333333333 ) ); // maximum 1
+	}
+	else
+	{
+		return ( ( 841 / 108 ) * input + 4 / 29 );  //841/108 = 29*29/36*16
+	}
+}
+
+void XYZtoLab( double X, double Y, double Z, double* L, double* a, double* b )
+{
+	const double Xo = 244.66128; // reference white
+	const double Yo = 255.0;
+	const double Zo = 277.63227;
+	*L = 116 * F( Y / Yo ) - 16; // maximum L = 100
+	*a = 500 * ( F( X / Xo ) - F( Y / Yo ) ); // maximum
+	*b = 200 * ( F( Y / Yo ) - F( Z / Zo ) );
+}
+
+void RGBtoXYZ( double R, double G, double B, double* X, double* Y, double* Z )
+{
+	double var_R = R / 255.0;
+	double var_G = G / 255.0;
+	double var_B = B / 255.0;
+
+	var_R = ( var_R > 0.04045 ) ? pow( ( var_R + 0.055 ) / 1.055, 2.4 )
+		: var_R / 12.92;
+	var_G = ( var_G > 0.04045 ) ? pow( ( var_G + 0.055 ) / 1.055, 2.4 )
+		: var_G / 12.92;
+	var_B = ( var_B > 0.04045 ) ? pow( ( var_B + 0.055 ) / 1.055, 2.4 )
+		: var_B / 12.92;
+
+	var_R *= 100;
+	var_G *= 100;
+	var_B *= 100;
+
+	*X = var_R * 0.4124 + var_G * 0.3576 + var_B * 0.1805;
+	*Y = var_R * 0.2126 + var_G * 0.7152 + var_B * 0.0722;
+	*Z = var_R * 0.0193 + var_G * 0.1192 + var_B * 0.9505;
+}
+
+void rgb2lab( int R, int G, int B, double* Lab )
+{
+	double X, Y, Z;
+	RGBtoXYZ( R, G, B, &X, &Y, &Z );
+	XYZtoLab( X, Y, Z, &Lab[ 0 ], &Lab[ 1 ], &Lab[ 2 ] );
+}
+
+static double color_distance_Lab( color_t* colour1, color_t* colour2 )
+{
+	double Lab1[ 3 ];
+	rgb2lab( colour1->chan[ 0 ], colour1->chan[ 1 ], colour1->chan[ 2 ], Lab1 );
+
+	double Lab2[ 3 ];
+	rgb2lab( colour2->chan[ 0 ], colour2->chan[ 1 ], colour2->chan[ 2 ], Lab2 );
+
+	double x;
+	double delta = 0;
+
+	x = Lab1[ 0 ] - Lab2[ 0 ];
+	delta += x * x;
+
+	x = Lab1[ 1 ] - Lab2[ 1 ];
+	delta += x * x;
+
+	x = Lab1[ 2 ] - Lab2[ 2 ];
+	delta += x * x;
+
+	return delta;
+}
+
+//
+// remap_Lab
+//
+// Return the closest color in the base palette. Use Lab color space comparison.
+//
+static uint32_t remap_Lab( std::vector< uint32_t >& aPalette, const size_t baseSize, const uint32_t input )
+{
+	size_t best_index = 0;
+	double score, best_score;
+
+	best_score = color_distance_Lab( (color_t*)&input, (color_t*)&( aPalette[ 0 ] ) );
+
+	for ( size_t i = 1; i < baseSize; ++i )
+	{
+		score = color_distance_Lab( (color_t*)&input, (color_t*)&( aPalette[ i ] ) );
+
+		if ( score <= best_score )
+		{
+			best_score = score;
+			best_index = i;
+		}
+	}
+
+	return aPalette[ best_index ];
+}
+
+static double color_distance_rgb( color_t* colour1, color_t* colour2 )
+{
+	double x;
+	double delta;
+
+	x = double( colour1->chan[ 0 ] ) - double( colour2->chan[ 0 ] );
+	delta = x * x;
+
+	x = double( colour1->chan[ 1 ] ) - double( colour2->chan[ 1 ] );
+	delta += x * x;
+
+	x = double( colour1->chan[ 2 ] ) - double( colour2->chan[ 2 ] );
+	delta += x * x;
+
+	return delta;
+}
+
+//
+// remap_rgb
+//
+// Return the closest color in the base palette. Use rgb color space comparison.
+//
+static uint32_t remap_rgb( std::vector< uint32_t >& aPalette, const size_t baseSize, const uint32_t input )
+{
+	size_t best_index = 0;
+	double score, best_score;
+
+	best_score = color_distance_rgb( (color_t*)&input, (color_t*)&( aPalette[ 0 ] ) );
+
+	for ( size_t i = 1; i < baseSize; ++i )
+	{
+		score = color_distance_rgb( (color_t*)&input, (color_t*)&( aPalette[ i ] ) );
+
+		if ( score <= best_score )
+		{
+			best_score = score;
+			best_index = i;
+		}
+	}
+
+	return aPalette[ best_index ];
 }
 
 //
@@ -240,6 +406,16 @@ static void generate_fog( std::vector< uint32_t >& aPalette, const options_t& op
 			fogOutput |= std::min( std::max( static_cast<int>( r ), 0 ), 255 ) << 16;
 			fogOutput |= std::min( std::max( static_cast<int>( g ), 0 ), 255 ) << 8;
 			fogOutput |= std::min( std::max( static_cast<int>( b ), 0 ), 255 );
+
+			// remap?
+			if ( options.bRemapLab )
+			{
+				fogOutput = remap_Lab( aPalette, baseSize, fogOutput );
+			}
+			else if ( options.bRemap )
+			{
+				fogOutput = remap_rgb( aPalette, baseSize, fogOutput );
+			}
 
 			// add to the array
 			aPalette.push_back( fogOutput );
