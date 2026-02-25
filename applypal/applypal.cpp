@@ -363,6 +363,7 @@ struct options_t
 
 	bool bLuminance = false;
 	bool bDither = false;
+	size_t indexOffset = 0;
 	bool bOpaque = true;
 
 	std::string strOutFile;
@@ -392,7 +393,7 @@ static void print_help()
 {
 	// Usage
 	printf( " USAGE: applypal.exe [-?] [-dither] [-opaque|-transp] [-lum] -pal <palette>\n" );
-	printf( "                <image>[...] [-o <image>]|[-outdir <folder>]\n\n" );
+	printf( "               [-addidx <offset>] <image>[...] [-o <image>]|[-outdir <folder>]\n\n" );
 	putchar( '\n' );
 
 	// Options
@@ -404,6 +405,7 @@ static void print_help()
 
 	putchar( '\n' );
 	printf( "  -pal <palette>     Palette file to use (in .HEX format)\n" );
+	printf( "  -addidx <offset>   Apply a fixed offset to palette indices.\n" );
 	putchar( '\n' );
 	printf( "  <image>[...]       Add image(s) to the processing list. Wildcards supported.\n" );
 	putchar( '\n' );
@@ -517,6 +519,7 @@ static bool process_args( int argc, char** argv, options_t& options )
 	bool bNextArgIsPalette = false;
 	bool bNextArgIsOutFile = false;
 	bool bNextArgIsOutFolder = false;
+	bool bNextArgIsAddIdx = false;
 
 	// Parse Command Line
 	for ( int iarg = 1; iarg < argc; ++iarg ) // skip element[0]
@@ -532,6 +535,11 @@ static bool process_args( int argc, char** argv, options_t& options )
 		{
 			bNextArgIsOutFolder = false;
 			options.strOutFolder = szArg;
+		}
+		else if ( bNextArgIsAddIdx )
+		{
+			bNextArgIsAddIdx = false;
+			options.indexOffset = atoi( szArg );
 		}
 		else if ( bNextArgIsPalette )
 		{
@@ -575,6 +583,10 @@ static bool process_args( int argc, char** argv, options_t& options )
 		else if ( _stricmp( szArg, "-pal" ) == 0 )
 		{
 			bNextArgIsPalette = true;
+		}
+		else if ( _stricmp( szArg, "-addidx" ) == 0 )
+		{
+			bNextArgIsAddIdx = true;
 		}
 		else if ( _stricmp( szArg, "-o" ) == 0 )
 		{
@@ -699,7 +711,7 @@ static bool make_path( std::string& path )
 	return !( e != 0 && er != EEXIST );
 }
 
-void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, bool bOpaque, const std::string& strOutFile )
+void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, size_t indexOffset, bool bOpaque, const std::string& strOutFile )
 {
 	// Open
 	std::cout << "Writing \"" << strOutFile << "\" (" << image._uBPP << "-BPP) ... ";
@@ -742,7 +754,8 @@ void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, bool 
 	for ( size_t i = 0; i < aPalette.size(); ++i )
 	{
 		const color_t src = aPalette[ i ];
-		png_color* p = palette + i;
+		uint8_t offset = (uint8_t)( i + indexOffset );
+		png_color* p = palette + offset;
 		p->red = src.chan[ 0 ];
 		p->green = src.chan[ 1 ];
 		p->blue = src.chan[ 2 ];
@@ -778,6 +791,14 @@ void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, bool 
 		for ( int i = 0; i < image._height; ++i )
 		{
 			png_bytep row = const_cast<png_bytep>( image._data_ptr + ( i * image._uStride ) );
+
+			if ( indexOffset != 0 )
+			{
+				for ( int x = 0; x < image._width; ++x )
+				{
+					row[ x ] = (png_byte)( row[ x ] + indexOffset );
+				}
+			}
 
 			png_write_rows( png_ptr, &row, 1 );
 		}
@@ -1110,7 +1131,7 @@ static void do_work( options_t& options )
 		}
 
 		// write image!
-		write_png( output, options.aPalette, options.bOpaque, outFile );
+		write_png( output, options.aPalette, options.indexOffset, options.bOpaque, outFile );
 
 		// tidy up
 		delete[] image._data_ptr;
