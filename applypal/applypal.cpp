@@ -733,10 +733,10 @@ void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, bool 
 	// Palette!
 	png_color palette[ 256 ];
 
-	// dummy grey-scale palette.
+	// base black palette.
 	for ( uint32_t i = 0; i < 256; ++i )
 	{
-		palette[ i ].red = palette[ i ].green = palette[ i ].blue = static_cast<png_byte>( 256 - i );
+		palette[ i ].red = palette[ i ].green = palette[ i ].blue = 0;
 	}
 
 	for ( size_t i = 0; i < aPalette.size(); ++i )
