@@ -780,9 +780,12 @@ void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, size_
 		if ( bOpaque == false )
 		{
 			png_color_16 palette_trans[ 1 ];
-			png_byte palette_trans_alpha[ 1 ];
-			palette_trans[ 0 ].index = palette_trans_alpha[ 0 ] = 0; // INDEX
-			png_set_tRNS( png_ptr, info_ptr, palette_trans_alpha, 1, palette_trans );
+			png_byte palette_trans_alpha[ 256 ];
+			palette_trans[ 0 ].index = (png_byte)( 0 + indexOffset ); // INDEX
+			for ( int i = 0; i < 256; ++i )
+				palette_trans_alpha[ i ] = 255; // Opaque
+			palette_trans_alpha[ palette_trans[ 0 ].index ] = 0; // Invisible
+			png_set_tRNS( png_ptr, info_ptr, palette_trans_alpha, (int)( (png_byte)indexOffset ) + 1, palette_trans );
 		}
 
 		// Write!
@@ -1004,7 +1007,7 @@ static void do_work( options_t& options )
 
 	if ( options.bOpaque == false )
 	{
-		std::cout << "Index 0 will be transparent.\n";
+		std::cout << "Index " << ( options.indexOffset ) << " will be transparent.\n";
 	}
 
 	std::cout << "\n";
