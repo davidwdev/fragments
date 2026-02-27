@@ -363,8 +363,9 @@ struct options_t
 
 	bool bLuminance = false;
 	bool bDither = false;
-	size_t indexOffset = 0;
+	int indexOffset = 0;
 	bool bOpaque = true;
+	int transIndex = 0;
 
 	std::string strOutFile;
 	std::string strOutFolder;
@@ -392,15 +393,16 @@ static void print_hello()
 static void print_help()
 {
 	// Usage
-	printf( " USAGE: applypal.exe [-?] [-dither] [-opaque|-transp] [-lum] -pal <palette>\n" );
-	printf( "               [-addidx <offset>] <image>[...] [-o <image>]|[-outdir <folder>]\n\n" );
+	printf( " USAGE: applypal.exe [-?] [-dither] [-opaque|-transp[=<remap>]]\n" );
+	printf( "             [-lum] -pal <palette> [-addidx <offset>] <image>[...]\n" );
+	printf( "             [-o <image>]|[-outdir <folder>]\n\n" );
 	putchar( '\n' );
 
 	// Options
 	printf( "  -?                 This help.\n" );
 	printf( "  -dither            Apply error-diffusion dithering to output.\n" );
 	printf( "  -opaque            All palette indices are opaque [default]\n" );
-	printf( "  -transp            Make palette index 0 transparent.\n" );
+	printf( "  -transp[=<remap>]  Make palette index 0 transparent, remap to <remap>.\n" );
 	printf( "  -lum               Apply rgb-to-luminance pre-filter to all inputs.\n" );
 
 	putchar( '\n' );
@@ -608,9 +610,21 @@ static bool process_args( int argc, char** argv, options_t& options )
 		{
 			options.bOpaque = true;
 		}
+		else if ( strncmp( szArg, "-transp=", 8 ) == 0 )
+		{
+			options.bOpaque = false;
+			options.transIndex = atoi( szArg + 8 );
+
+			if ( options.transIndex < 0 || options.transIndex > 255 )
+			{
+				printf( "Error - invalid transparent index (%d).\n", options.transIndex );
+				return false;
+			}
+		}
 		else if ( _stricmp( szArg, "-transp" ) == 0 )
 		{
 			options.bOpaque = false;
+			options.transIndex = 0;
 		}
 		else
 		{
@@ -711,7 +725,7 @@ static bool make_path( std::string& path )
 	return !( e != 0 && er != EEXIST );
 }
 
-void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, size_t indexOffset, bool bOpaque, const std::string& strOutFile )
+void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, int indexOffset, bool bOpaque, int transIndex, const std::string& strOutFile )
 {
 	// Open
 	std::cout << "Writing \"" << strOutFile << "\" (" << image._uBPP << "-BPP) ... ";
@@ -751,7 +765,25 @@ void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, size_
 		palette[ i ].red = palette[ i ].green = palette[ i ].blue = 0;
 	}
 
-	for ( size_t i = 0; i < aPalette.size(); ++i )
+	size_t palCopyStart;
+
+	if ( bOpaque )
+	{
+		palCopyStart = 0;
+	}
+	else
+	{
+		palCopyStart = 1;
+
+		const color_t src = aPalette[ 0 ];
+		uint8_t offset = (uint8_t)( transIndex );
+		png_color* p = palette + offset;
+		p->red = src.chan[ 0 ];
+		p->green = src.chan[ 1 ];
+		p->blue = src.chan[ 2 ];
+	}
+
+	for ( size_t i = palCopyStart; i < aPalette.size(); ++i )
 	{
 		const color_t src = aPalette[ i ];
 		uint8_t offset = (uint8_t)( i + indexOffset );
@@ -781,7 +813,7 @@ void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, size_
 		{
 			png_color_16 palette_trans[ 1 ];
 			png_byte palette_trans_alpha[ 256 ];
-			palette_trans[ 0 ].index = (png_byte)( 0 + indexOffset ); // INDEX
+			palette_trans[ 0 ].index = (png_byte)( transIndex ); // INDEX
 			for ( int i = 0; i < 256; ++i )
 				palette_trans_alpha[ i ] = 255; // Opaque
 			palette_trans_alpha[ palette_trans[ 0 ].index ] = 0; // Invisible
@@ -795,12 +827,20 @@ void write_png( const indexmap_t& image, std::vector< color_t >& aPalette, size_
 		{
 			png_bytep row = const_cast<png_bytep>( image._data_ptr + ( i * image._uStride ) );
 
-			if ( indexOffset != 0 )
+			for ( int x = 0; x < image._width; ++x )
 			{
-				for ( int x = 0; x < image._width; ++x )
+				png_byte p = row[ x ];
+
+				if ( ( bOpaque == false ) && ( p == 0 ) )
 				{
-					row[ x ] = (png_byte)( row[ x ] + indexOffset );
+					p = transIndex; // potentially remaps the transparent pixel to another index.
 				}
+				else
+				{
+					p = (png_byte)( p + indexOffset ); // apply a (wrapping) offset to the index.
+				}
+
+				row[ x ] = p;
 			}
 
 			png_write_rows( png_ptr, &row, 1 );
@@ -1007,7 +1047,7 @@ static void do_work( options_t& options )
 
 	if ( options.bOpaque == false )
 	{
-		std::cout << "Index " << ( options.indexOffset ) << " will be transparent.\n";
+		std::cout << "Index " << int( (uint8_t)( options.transIndex ) ) << " will be transparent.\n";
 	}
 
 	std::cout << "\n";
@@ -1134,7 +1174,7 @@ static void do_work( options_t& options )
 		}
 
 		// write image!
-		write_png( output, options.aPalette, options.indexOffset, options.bOpaque, outFile );
+		write_png( output, options.aPalette, options.indexOffset, options.bOpaque, options.transIndex, outFile );
 
 		// tidy up
 		delete[] image._data_ptr;
